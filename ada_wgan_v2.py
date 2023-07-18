@@ -10,6 +10,9 @@ import matplotlib.pyplot as plt
 import os
 import re
 
+# Get the current working directory
+current_directory = os.getcwd()
+
 # Load and preprocess the input data
 def load_data(filename):
     data = pd.read_csv(filename)
@@ -128,11 +131,13 @@ class TabularWGAN:
         self.learning_rate = learning_rate
         self.clipvalue = clipvalue
 
-        self.generator = build_generator_model(latent_dim, num_attributes, l2_factor)
-        self.discriminator = build_discriminator_model(num_attributes, l2_factor)
+        self.generator = self.build_generator_model()
+        self.discriminator = self.build_discriminator_model()
         self.adversarial_model = self.build_adversarial_model()
 
-        self.checkpoint_dir = "/content/drive/MyDrive/checkpoints/"
+        self.checkpoint_dir = os.path.join(current_directory, checkpoint_dir)
+        self.plot_dir = os.path.join(current_directory, plot_dir)
+
         self.checkpoint_prefix = os.path.join(self.checkpoint_dir, "ckpt")
         self.checkpoint = tf.train.Checkpoint(generator=self.generator,
                                               discriminator=self.discriminator,
@@ -285,12 +290,12 @@ class TabularWGAN:
                 plt.tight_layout()
 
                 # Save the plot
-                plot_filename = f'/content/drive/MyDrive/wasserstein_dist_{iteration}.png'
+                plot_filename = os.path.join(self.plot_dir, f'wasserstein_dist_{iteration}.png')
                 plt.savefig(plot_filename)
                 plt.close()
 
                 # Import real data
-                real_data = load_data('/content/drive/MyDrive/true_imputed_no_tchol.csv')
+                real_data = load_data(os.path.join(current_directory, 'true_imputed_no_tchol.csv'))
                 real_data = real_data.iloc[:, 1:]
 
                 # Categorical columns in encoded data
@@ -311,7 +316,7 @@ class TabularWGAN:
         self.checkpoint.save(file_prefix=self.checkpoint_prefix)
 
         # Import real data
-        real_data = load_data('/content/drive/MyDrive/true_imputed_no_tchol.csv')
+        real_data = load_data(os.path.join(current_directory, 'true_imputed_no_tchol.csv'))
         real_data = real_data.iloc[:, 1:]
 
         # Categorical columns in encoded data
@@ -368,8 +373,8 @@ class TabularWGAN:
 # Main function
 def main():
     # Load and preprocess the data
-    data = load_data('/content/drive/MyDrive/true_imputed_no_tchol.csv')
-
+    data = load_data(os.path.join(current_directory, 'true_imputed_no_tchol.csv'))
+    
     # Remove the first column
     data = data.iloc[:, 1:]
 
@@ -385,8 +390,12 @@ def main():
     learning_rate = 0.0000075  # Initial learning rate
     clipvalue = 0.001
 
+    checkpoint_dir = "checkpoints"
+    plot_dir = "plots"
+
     # Create the TabularWGAN object
-    tabular_wgan = TabularWGAN(num_attributes, latent_dim, l2_factor, learning_rate, clipvalue)
+    tabular_wgan = TabularWGAN(num_attributes, latent_dim, l2_factor, learning_rate, clipvalue, checkpoint_dir, plot_dir)
+
 
     # Set up checkpoint manager
     checkpoint = tf.train.Checkpoint(generator=tabular_wgan.generator,
@@ -395,8 +404,9 @@ def main():
     checkpoint_manager = tf.train.CheckpointManager(checkpoint, tabular_wgan.checkpoint_dir, max_to_keep=3)
 
     # Check if the model is already present in the directory
-    model_directory = "/content/drive/MyDrive/checkpoints"
+    model_directory = os.path.join(current_directory, "checkpoints")
     model_present = tf.train.latest_checkpoint(model_directory)
+
 
     if model_present:
         # Load the latest checkpoint
